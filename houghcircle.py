@@ -5,10 +5,10 @@ import time
 import numpy as np
 import imutils
 
-defaultSpeed = 25
+defaultSpeed = 50
 windowCenter = 320
-centerBuffer = 30
-pwmBound = float(25)
+centerBuffer = 10
+pwmBound = float(50)
 cameraBound = float(320)
 kp = pwmBound / cameraBound
 leftBound = int(windowCenter - centerBuffer)
@@ -48,6 +48,10 @@ rightMotorFwd.start(defaultSpeed)
 leftMotorFwd.start(defaultSpeed)
 leftMotorRev.start(defaultSpeed)
 rightMotorRev.start(defaultSpeed)
+def updatePwm(rightPwm, leftPwm):
+	rightMotorFwd.ChangeDutyCycle(rightPwm)
+	leftMotorFwd.ChangeDutyCycle(leftPwm)
+
 def pwmStop():
 	rightMotorFwd.ChangeDutyCycle(0)
 	rightMotorRev.ChangeDutyCycle(0)
@@ -57,72 +61,80 @@ def pwmStop():
 #Camera setup
 camera = PiCamera()
 camera.resolution = (640, 480)
-camera.framerate = 30
+camera.framerate = 15
 rawCapture = PiRGBArray(camera, size = (640, 480))
 
 time.sleep(0.1)
 
-lower_yellow = np.array([15, 70, 70])
-upper_yellow = np.array([40, 255, 255])
+lower_yellow = np.array([13, 50, 0])
+upper_yellow = np.array([30, 255, 255])
 
 for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
 	
 	image = frame.array
+	output = image.copy()
 	hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 	
 	mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 	mask = cv2.erode(mask, None, iterations=2)
 	mask = cv2.dilate(mask, None, iterations=2)
-	
-	cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-	center = None
+	output = cv2.bitwise_and(output, output, mask=mask)
+	#output = cv2.dilate(output, None, iterations=2)
+	#output = cv2.erode(output, None, iterations=2)
+	gray = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
+	#_, binary = cv2.threshold(gray, 1, 255, cv2. THRESH_BINARY)
+	circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 3, 500, minRadius = 10, maxRadius = 200, param1 = 100,  param2 = 60)
+	#cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
 	ballPixel = 0
-	if len(cnts) > 0:
-		c = max(cnts, key=cv2.contourArea)
-		((x,y,), radius) = cv2.minEnclosingCircle(c)
-		M = cv2.moments(c)
 	
+	if circles is not None:
+		circles = np.round(circles[0, :]).astype("int")
+		for (x, y, radius) in circles:
+
+			cv2.circle(output, (x, y), radius, (0, 255, 0), 4)
+			#cv2.rectangle(output, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)	
 		
-		if radius > 10:
-			cv2.circle(image, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-			cv2.circle(image, center, 5, (0, 0, 255), -1)
-			ballPixel = x
-		else:
-			ballPixel = 0
+			if radius > 10:	
+				ballPixel = x
+			else:
+				ballPixel = 0
 	
-	#cv2.imshow("image", None)
+	#cv2.imshow("output", output)
 	cv2.namedWindow("window")
 	key = cv2.waitKey(1) & 0xFF
 	rawCapture.truncate(0)
-		
+	
 	#Proportional controller
 	if ballPixel == 0:
-		print "no ball"
+		#print "no ball"
 		error = 0
 		pwmStop()
 	elif (ballPixel < leftBound) or (ballPixel > rightBound):
 		error = windowCenter - ballPixel
 		pwmOut = abs(error * kp) 
-		print radius
-		if  ballPixel < (leftBound) and pwmOut > 7 and radius < 40:
-			print "left side"
-			rightMotorFwd.ChangeDutyCycle(pwmOut + defaultSpeed)
-			leftMotorFwd.ChangeDutyCycle(defaultSpeed)
-			#leftMotorRev.ChangeDutyCycle(pwmOut)
-			#rightMotorRev.ChangeDutyCycle(0)
-		elif ballPixel > (rightBound) and pwmOut > 7:
-			print "right side"
-			leftMotorFwd.ChangeDutyCycle(pwmOut + defaultSpeed)
-			#rightMotorRev.ChangeDutyCycle(pwmOut)
-			#leftMotorRev.ChangeDutyCycle(0)
-			rightMotorFwd.ChangeDutyCycle(defaultSpeed)
+		#print ballPixel
+		turnPwm = pwmOut + defaultSpeed
+		if  ballPixel < (leftBound):
+			#print "left side"
+			if radius > 50 and ballPixel < 110:
+				print ballPixel
+				updatePwm(defaultSpeed, 20)
+			else:
+				updatePwm(turnPwm, defaultSpeed)
+		elif ballPixel > (rightBound):
+			#print "right side"
+			if radius > 50 and ballPixel > 540:
+				print ballPixel
+				updatePwm(20, defaultSpeed)
+			else:
+				updatePwm(defaultSpeed, turnPwm)
 	else:	
-		print "middle"
+		#print "middle"
 		if (radius < 40):
-			rightMotorFwd.ChangeDutyCycle(defaultSpeed)	
-			leftMotorFwd.ChangeDutyCycle(defaultSpeed)
+			updatePwm(defaultSpeed, defaultSpeed)
 		else:
 			pwmStop()
+	
 	if key == ord('q'):
 		break
 

@@ -35,44 +35,27 @@ key = ''
 movementHold = False #counter so that movement functions only run once when key is held
 
 #Disable movement at startup
-GPIO.output(leftFwd, False)
-GPIO.output(leftRev, False)
-GPIO.output(rightFwd, False)
-GPIO.output(rightRev, False)
-
 def forward():
 	rightMotorFwd.ChangeDutyCycle(45)	
 	leftMotorFwd.ChangeDutyCycle(45)	
-	print "Forward start"
+	print 'Forward start \n'
 
 def left():
-	leftMotorFwd.ChangeDutyCycle(30)
-	rightMotorFwd.ChangeDutyCycle(45)
-	print "Left"
+	leftMotorRev.ChangeDutyCycle(30)
+	rightMotorFwd.ChangeDutyCycle(60)
+	print 'Left'
 
 def right():
-	rightMotorFwd.ChangeDutyCycle(30)
-	leftMotorFwd.ChangeDutyCycle(45)
-	print "Right"
+	rightMotorRev.ChangeDutyCycle(30)
+	leftMotorFwd.ChangeDutyCycle(60)
+	print 'Right \n'
 	
 def reverse():
 	rightMotorRev.ChangeDutyCycle(47)
 	leftMotorRev.ChangeDutyCycle(50)
-	print "Reverse start"
-
-def fullLeft():
-	leftMotorRev.ChangeDutyCycle(30)
-	rightMotorFwd.ChangeDutyCycle(60)
-
-def fullRight():
-	rightMotorRev.ChangeDutyCycle(30)
-	leftMotorFwd.ChangeDutyCycle(60)
+	print 'Reverse start \n'
 	
 def stop():
-	GPIO.output(rightFwd, False)
-	GPIO.output(leftFwd, False)
-	GPIO.output(rightFwd, False)
-	GPIO.output(leftFwd, False)
 	rightMotorFwd.ChangeDutyCycle(0)
 	rightMotorRev.ChangeDutyCycle(0)
 	leftMotorFwd.ChangeDutyCycle(0)
@@ -136,14 +119,10 @@ while key != ord('q'): # press q to quit
 
 	elif key == ord('d'):
 		keyPressed = movement(keyPressed, tiltDown)			
-	elif key == ord('z'):
-		keyPressed = movement(keyPressed, fullLeft)
-	elif key == ord('x'):
-		keyPressed = movement(keyPressed, fullRight)
 
 	else:
 		if keyPressed == False:
-			print "Stopped"
+			print 'Stopped \n'
 			keyPressed = True
 			stop()
 		
